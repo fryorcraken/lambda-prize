@@ -2,14 +2,17 @@ name: Add solutions to project
 
 # `pull_request_target` is used because solutions are submitted from forks,
 # and `pull_request` runs from forks get no secrets (so no ADD_TO_PROJECT_PAT).
-# It runs on the base branch and never checks out or executes the fork's
-# tree: the only PR input used is the title, in the `if:` expression below.
-# This workflow only adds the PR to the board and sets two fields; it never
-# edits, closes, or merges the PR.
+# It runs the workflow from the default branch and never checks out or
+# executes the fork's tree: the only PR input used is the title, in the `if:`
+# expression below. This workflow only adds the PR to the board and sets two
+# fields; it never edits, closes, or merges the PR.
 on:
   pull_request_target:
     types:
       - opened
+      # validate-submission tells contributors with a wrong title to rename
+      # the PR, so a rename into `Solution:` must be picked up too.
+      - edited
 
 permissions:
   contents: read
@@ -19,7 +22,13 @@ jobs:
     name: Add solution PR to project
     # Solution PRs are titled `Solution: LP-xxxx — <name>`. Anchor on the
     # prefix only: other PRs mention LP numbers without being submissions.
-    if: startsWith(github.event.pull_request.title, 'Solution:')
+    # On `edited`, only fire when the title changes into the prefix, so body
+    # edits don't re-run and reset Status.
+    if: >-
+      startsWith(github.event.pull_request.title, 'Solution:') &&
+      (github.event.action == 'opened' ||
+       (github.event.changes.title.from != null &&
+        !startsWith(github.event.changes.title.from, 'Solution:')))
     runs-on: ubuntu-latest
     steps:
       - id: add-to-project
